@@ -3,6 +3,8 @@ library(leaflet)
 library(dplyr)
 library(ggplot2)
 
+options(scipen = 999)
+
 data_bag_aggr <- readRDS("bag_aggr.RDS")
 variables <- readRDS("variables.RDS")
 valuespots <- readRDS("valuespots.RDS")

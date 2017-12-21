@@ -1,6 +1,11 @@
-# Amsterdam value spotter
+# Amsterdam value spots
 
 With this app, you can easily find out where in Amsterdam the true valueable spots for housing are. 
+
+Try the app on shinyapps.io:
+[https://research-engineer.shinyapps.io/valuespotter_app/](https://research-engineer.shinyapps.io/valuespotter_app/)
+
+![](screenshot.png)
 
 ## Distance scores
 
