@@ -11,6 +11,7 @@ valuespots <- readRDS("valuespots.RDS")
 scoring_formulae <- readRDS("scoring_formulae.RDS")
 
 config.max_map_markers <- 10 ^ 4
+config.debounce_delay_milliseconds <- 200
 
 ui <- fluidPage(
   title = "Value spots in Amsterdam",
@@ -50,8 +51,12 @@ ui <- fluidPage(
           ),
           p(
             "Code on GitHub: ",
-            a(href = "https://github.com/NilsOle/valuespots", target =
-                "_blank", "github.com/NilsOle/valuespots")
+            a(
+              href = "https://github.com/NilsOle/valuespots",
+              target =
+                "_blank",
+              "github.com/NilsOle/valuespots"
+            )
           ),
           p(
             "Data source (as of November 8, 2017): ",
@@ -77,6 +82,43 @@ ui <- fluidPage(
   )
 )
 server <- function(input, output, session) {
+  # object for storing debounced inputs
+  input_d <- list()
+  # these names must be parts of input_d and addressable as reactive functions
+  config.expected_names <- c(
+    "display_mode",
+    "spotscores_selection",
+    "valuemarks_selection",
+    paste0("weight_", variables[, "technical_name"]),
+    "button_save_formula"
+  )
+  status.last_input_names <- NULL
+  input_all <- reactive({
+    all_values <- reactiveValuesToList(input)
+    if (is.null(status.last_input_names)) {
+      wanted_values <- c(names(all_values), config.expected_names)
+      new_reactive_names <- wanted_values
+    } else {
+      new_reactive_names <-
+        names(all_values)[which(!names(all_values) %in% status.last_input_names)]
+    }
+    if (length(new_reactive_names) > 0) {
+      input_d[new_reactive_names] <<-
+        sapply(new_reactive_names, function(cur_name) {
+          reactive({
+            if (!all(is.null(input[[cur_name]]))) {
+              input[[cur_name]]
+            } else {
+              NULL
+            }
+          }) %>% debounce(config.debounce_delay_milliseconds)
+        })
+    }
+    status.last_input_names <<- names(input_d)
+  })
+  # activate wrapper
+  observeEvent(input_all(), {
+  })
   generate_formula <- function(variables_table) {
     if (sum(variables_table$weight) > 0) {
       paste0("(",
@@ -130,10 +172,10 @@ server <- function(input, output, session) {
           "Create your own custom score! Configure the weights for each spot distance, and the formula will be changed accordingly. Hit \"Save\" when you are done."
         ),
         lapply(names(choices), function(cur_choice) {
-          if (is.null(input[[paste0("weight_", cur_choice)]])) {
+          if (is.null(input_d[[paste0("weight_", cur_choice)]]())) {
             insert_nr <- 0
           } else {
-            insert_nr <- input[[paste0("weight_", cur_choice)]]
+            insert_nr <- input_d[[paste0("weight_", cur_choice)]]()
           }
           numericInput(
             inputId = paste0("weight_", cur_choice),
@@ -168,20 +210,20 @@ server <- function(input, output, session) {
     function(spotscore_selection = session$userData$spotscore_selection,
              valuespots_selection = session$userData$valuespot_selection) {
       if (is.null(spotscore_selection)) {
-        get_map_values <- data_bag_aggr[0, ]
+        get_map_values <- data_bag_aggr[0,]
       } else {
         get_map_values <-
-          data_bag_aggr[order(data_bag_aggr[, spotscore_selection]), ]
+          data_bag_aggr[order(data_bag_aggr[, spotscore_selection]),]
         if (nrow(get_map_values) > config.max_map_markers) {
-          get_map_values <- get_map_values[1:config.max_map_markers, ]
+          get_map_values <- get_map_values[1:config.max_map_markers,]
         }
       }
       session$userData$map_addresses <- get_map_values
       if (is.null(valuespots_selection)) {
-        markers_values <- valuespots[0, ]
+        markers_values <- valuespots[0,]
       } else {
         markers_values <-
-          valuespots[valuespots[, "variable_technical_name"] %in% valuespots_selection , ]
+          valuespots[valuespots[, "variable_technical_name"] %in% valuespots_selection ,]
       }
       valuerange <- get_map_values[[spotscore_selection]]
       session$userData$spotscore_selection <- spotscore_selection
@@ -263,7 +305,6 @@ server <- function(input, output, session) {
             labFormat = labelFormat(suffix = " m"),
             opacity = 1
           )
-        
       })
       output$plot <- renderPlot({
         ggplot(data_bag_aggr, aes(data_bag_aggr[[spotscore_selection]])) +
@@ -278,7 +319,7 @@ server <- function(input, output, session) {
         }
       )
       output$table <- renderTable({
-        data <- data_bag_aggr[order(data_bag_aggr[[spotscore_selection]]), ]
+        data <- data_bag_aggr[order(data_bag_aggr[[spotscore_selection]]),]
         until <- 10
         if (nrow(data) == 0) {
           return(NULL)
@@ -297,38 +338,26 @@ server <- function(input, output, session) {
         return(returnval)
       })
     }
-  output$map <- renderLeaflet({
-    return(
-      leaflet(data = data_bag_aggr) %>%
-        addProviderTiles(providers$CartoDB.Positron) %>%
-        fitBounds(
-          min(data_bag_aggr$lon),
-          min(data_bag_aggr$lat),
-          max(data_bag_aggr$lon),
-          max(data_bag_aggr$lat)
-        )
-    )
-  })
   update_ui()
-  observeEvent(input$spotscores_selection, {
-    update_map(spotscore_selection = input$spotscores_selection)
+  observeEvent(input_d$spotscores_selection(), {
+    update_map(spotscore_selection = input_d$spotscores_selection())
   })
-  observeEvent(input$valuemarks_selection,
+  observeEvent(input_d$valuemarks_selection(),
                {
-                 update_map(valuespots_selection = input$valuemarks_selection)
+                 update_map(valuespots_selection = input_d$valuemarks_selection())
                },
                ignoreNULL = FALSE,
                ignoreInit = TRUE)
   listen_list <- reactive({
     lapply(variables[, "technical_name"], function(el) {
-      input[[paste0("weight_", el)]]
+      input_d[[paste0("weight_", el)]]()
     })
   })
   observeEvent(listen_list(), {
     variables_custom_score <- variables
     variables_custom_score[, "weight"] <-
-      as.vector(sapply(variables[, "technical_name"], function(el) {
-        ifelse(is.null(input[[paste0("weight_", el)]]), 0, input[[paste0("weight_", el)]])
+      as.integer(sapply(variables[, "technical_name"], function(el) {
+        ifelse(is.null(input_d[[paste0("weight_", el)]]()), 0,     input_d[[paste0("weight_", el)]]())
       }))
     session$userData$custom_formula <-
       generate_formula(variables_custom_score)
@@ -336,7 +365,7 @@ server <- function(input, output, session) {
       session$userData$custom_formula
     })
   })
-  observeEvent(input$button_save_formula, {
+  observeEvent(input_d$button_save_formula(), {
     if (!"custom_score" %in% scoring_formulae[, "technical_name"]) {
       scoring_formulae <<- rbind(
         scoring_formulae,
