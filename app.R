@@ -9,6 +9,7 @@ library(sp)
 library(htmlwidgets)
 library(geosphere)
 library(ncdf4)
+library(rgdal)
 
 options(scipen = 999)
 
