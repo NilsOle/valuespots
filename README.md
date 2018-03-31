@@ -25,6 +25,10 @@ You can also combine your custom needs and create your individual score. By calc
 
 * Include the code for generating the initial distance variables (such as Starbucks distance and NS IC train station distance).
 
-* Consider server-sided static heatmap image generation instead the current client-sided visualization.
+* Add more data for the heatmap (currently limited to Amsterdam city).
+
+* Increase app performance when using a high raster resolution.
 
 * Make the UX more intuitive (particularly the creation of the custom score).
+
+* Improve documentation.
