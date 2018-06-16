@@ -1,7 +1,7 @@
 Package: valuespotter
 Type: Package
 Title: Landmark-Based GIS Distance Scoring Visualisation
-Version: 0.1.01
+Version: 0.1.02
 Author: person("Nils", "Glück", role = c("aut", "cre")),
 Maintainer: Nils Glück <info@nilsole.net>
 Description: With this Shiny app, you can easily find out where in Amsterdam the true valueable spots for housing are. This works by measuring the distance between each building and certain value marks, such as the closest Starbucks store or the closest access to the motorway.

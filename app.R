@@ -15,10 +15,6 @@ options(scipen = 999)
 
 # RDS datasets expected
 shiny_data_dir <- "shiny_data/"
-data_bag_aggr <- readRDS(paste0(shiny_data_dir,"bag_aggr.RDS"))
-variables <- readRDS(paste0(shiny_data_dir,"variables.RDS"))
-valuespots <- readRDS(paste0(shiny_data_dir,"valuespots.RDS"))
-scoring_formulae <- readRDS(paste0(shiny_data_dir,"scoring_formulae.RDS"))
 
 # How many addresses should the download csv file contain?
 config.max_map_markers <- 10 ^ 4
@@ -108,6 +104,11 @@ ui <- fluidPage(
   )
 )
 server <- function(input, output, session) {
+  data_bag_aggr <- readRDS(paste0(shiny_data_dir,"bag_aggr.RDS"))
+  variables <- readRDS(paste0(shiny_data_dir,"variables.RDS"))
+  valuespots <- readRDS(paste0(shiny_data_dir,"valuespots.RDS"))
+  scoring_formulae <- readRDS(paste0(shiny_data_dir,"scoring_formulae.RDS"))
+
   # object for storing debounced inputs
   input_d <- list()
   # these names will be parts of input_d and addressable as reactive functions
@@ -238,6 +239,7 @@ server <- function(input, output, session) {
     percentile <- ecdf(data_bag_aggr[[spotscore_selection]])
     total_lon <- c(get_map_values$lon, markers_values$lon)
     total_lat <- c(get_map_values$lat, markers_values$lat)
+
     leafletProxy( mapId = "map") %>%
       clearImages() %>%
       clearControls() %>%
@@ -246,23 +248,6 @@ server <- function(input, output, session) {
                 min(total_lat),
                 max(total_lon),
                 max(total_lat)) %>%
-      addLegend("bottomright",
-                pal = pal3 ,
-                values = data_bag_aggr[[spotscore_selection]],
-                title = "Distance score",
-                labFormat = function(type, cuts, p) {
-                  n = length(cuts)
-                  p = paste0(round(p * 100), '%')
-                  paste0(prettyNum(floor(cuts[-n]),big.mark = ",",preserve.width = "none"),
-                         " m &ndash; ",
-                         prettyNum(floor(cuts[-1]),big.mark = ",",preserve.width = "none"),
-                         " m" )
-                },
-                opacity = 1
-      ) %>%
-      addRasterImage(r,
-                     colors = pal2,
-                     opacity = 0.8) %>%
       htmlwidgets::onRender("
           function(el, x) {
             var myMap = this;
@@ -271,6 +256,26 @@ server <- function(input, output, session) {
               Shiny.onInputChange('map_click',{ lng: popLocation.lng, lat: popLocation.lat });
             });
           }")
+      if( length(unique(data_bag_aggr[[spotscore_selection]])) > 1 ){
+        leafletProxy( mapId = "map") %>%
+          addLegend("bottomright",
+                    pal = pal3 ,
+                    values = data_bag_aggr[[spotscore_selection]],
+                    title = "Distance score",
+                    labFormat = function(type, cuts, p) {
+                      n = length(cuts)
+                      p = paste0(round(p * 100), '%')
+                      paste0(prettyNum(floor(cuts[-n]),big.mark = ",",preserve.width = "none"),
+                             " m &ndash; ",
+                             prettyNum(floor(cuts[-1]),big.mark = ",",preserve.width = "none"),
+                             " m" )
+                    },
+                    opacity = 1
+          ) %>%
+          addRasterImage(r,
+                         colors = pal2,
+                         opacity = 0.8)
+    }
     output$plot <- renderPlot({
       ggplot(data_bag_aggr, aes(data_bag_aggr[[spotscore_selection]])) +
         geom_histogram(bins = 10) + xlab(scoring_formulae[scoring_formulae[, "technical_name"] == spotscore_selection, "name"])
