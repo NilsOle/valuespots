@@ -2,7 +2,7 @@
 
 With this app, you can easily find out where in Amsterdam the true valueable spots for housing are. 
 
-Try the app on shinyapps.io:
+Try the app:
 [https://www.nilsglueck.io/valuespotter_app/](https://www.nilsglueck.io/valuespotter_app/)
 
 ![](screenshot.png)
